@@ -1,0 +1,202 @@
+{% extends "work/base.html" %}
+{% load static %}
+{% block content %}
+{% include "work/_resolutionbox.html"%}
+<div id="index">
+    <div v-if="output">
+        <b>Output</b><br>
+        <label>Errors only <input type="checkbox" v-model="errors_only"></label>
+        <label>warnings only <input type="checkbox" v-model="warnings_only"></label>
+        <ol style="list-style-position: unset; list-style:none;overflow: scroll; max-height: 20ch;">
+            <table>
+                <tr v-for="item in output" :class="item['class']"
+                    v-if="(errors_only && item['class']=='error') || (warnings_only && item['class']=='warning') || (!errors_only && !warnings_only)">
+                    <td>{: item['text'] :}</td>
+                </tr>
+            </table>
+        </ol>
+    </div>
+    <button v-on:click="toggleAdmin">Admin on/off</button>
+    <div v-if="admin" class="section">
+        <p>Load DPR Qty</p>
+        <form action="{% url 'work:loadDprQty'%}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" name="file" accept=".xlsx">
+            <input type="submit" value="Load">
+        </form>
+    </div>
+
+    <div v-if="admin" class="section">
+        <h2>Saubhagya (DDUGJY Additional Infra)</h2>
+        <form id="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+            {% csrf_token %}
+            <input hidden name='path' value="files/template_approval.xlsx">
+            <input hidden name='filename' value="template_approval.xlsx">
+            <input hidden name='tabtype' value="template_approval">
+            <input type="submit" value="Download template_approval">
+        </form>
+        <h3>Upload Survey Data</h3>
+        <form action="{% url 'work:uploadSurvey'%}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" name="file" accept=".xlsx">
+            <input type="submit" value="upload">
+        </form>
+    </div>
+    <div v-if="admin" class="section">
+        <p>Add site</p>
+        <form action="{% url 'work:addSite'%}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <p>Select update file</p>
+            <input type="file" name="file" accept=".xlsx">
+            <input type="submit" value="Add">
+        </form>
+    </div>
+    <br>
+    <div class="section" v-if="admin">
+        <h4>Update progress</h4>
+        <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+            {% csrf_token %}
+            <input hidden name='path' value="files/progress_report.xlsx">
+            <input hidden name='filename' value="template_progress_report.xlsx">
+            <input hidden name='tabtype' value="template_progress_report">
+            <input type="submit" value="Download Report Template">
+        </form>
+        <form @submit.prevent="updateProgress(false)">
+            {% csrf_token %}
+            <p>Select update file</p>
+            <label for="changeid">Update id</label>
+            <input type="text" name="updateid" v-model="updateid">
+            <input type="file" name="file" accept=".xlsx" v-on:change="handleFileUpload" ref="file">
+            <button v-on:click="updateProgress(true)" id="validate_progress" v-bind:disabled="!if_file">Check</button>
+            <input type="submit" value="update" v-bind:disabled="!if_file">
+        </form>
+    </div>
+    <!-- Undo -->
+    <hr>
+    <div v-if="admin">
+        <form action="{% url 'work:undoextra'%}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <p><b>Undo Extra Site Qty Update</b></p>
+            <label for="changeid">Update id</label>
+            <input type="text" name="updateid">
+            <input type="submit" value="Undo">
+        </form>
+    </div>
+    <br>
+    <div style="display: flex;">
+        <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+            {% csrf_token %}
+            <input hidden name='path' value="outputs/progess_summary.xlsx">
+            <input hidden name='filename' value="DistrictProgressSummary.xlsx">
+            <input hidden name='tabtype' value="districtwise">
+            <input type="submit" value="Download District Progress">
+        </form>
+        <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+            {% csrf_token %}
+            <input hidden name='path' value="outputs/progress_sites.xlsx">
+            <input hidden name='filename' value="progress_sites.xlsx">
+            <input hidden name='tabtype' value="sites">
+            <input type="submit" value="Download Site Scope & Progress">
+        </form>
+        <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+            {% csrf_token %}
+            <input hidden name='path' value="outputs/balance_progress.xlsx">
+            <input hidden name='filename' value="balance_progress.xlsx">
+            <input hidden name='tabtype' value="balance">
+            <input type="submit" value="Download Balance and Progress">
+        </form>
+    </div>
+    <div>
+        <div v-if="ifloading">
+            Loading...
+        </div>
+        <b>Progress</b>
+        <span v-html="data"></span>
+    </div>
+    <a name="recent_changes"></a>
+    <div class="section">
+        <p><b>Last changes</b></p>
+        <ul style="list-style: none;">
+            <li v-for="log in logs">
+                {: log['created_at'].substring(0,10) :} {: log['changeid'] :} - {: log['model'] :}
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+{% block right %}
+{% endblock %}
+{% block script %}
+<script>
+    indexApp = new Vue({
+        el: '#index',
+        delimiters: ["{:", ":}"],
+        data: {
+            show: true,
+            admin: false,
+            output: null,
+            hasOutput: false,
+            if_file: false,
+            updateid: "",
+            errors_only: false,
+            warnings_only: false,
+            data: null,
+            logs: null,
+            ifloading: false
+        },
+        mounted() {
+            this.getData();
+        },
+        methods: {
+            getData: function () {
+                this.ifloading = true;
+                axios.get("{% url 'work:api_data' %}").then(response => {
+                    this.data = response.data['data'];
+                    this.logs = response.data['logs'];
+                    tdcss();
+                    //console.log(this.logs);
+                    this.ifloading = false;
+                });
+            },
+            toggleAdmin: function () {
+                this.admin = !this.admin
+            },
+            updateProgress: function (isTest) {
+                ifloading = true;
+                this.output = null;
+                let file = this.$refs.file.files[0];
+                let formdata = new FormData();
+                formdata.append('file', file);
+                formdata.append('updateid', this.updateid);
+                formdata.append('isTest', isTest);
+                let csrftoken = Cookies.get('csrftoken');
+                axios.post("{% url 'work:updateProgress' %}", formdata,
+                    {
+                        headers: {
+                            'Content-Type': 'multipart/form-data',
+                            'X-CSRFToken': csrftoken
+                        }
+                    }
+                ).then(response => {
+                    this.output = response.data['status'];
+                    console.log(response.data);
+                    this.errors_only = false;
+                    ifloading = false;
+                    this.getData();
+                }).catch(ex => {
+                    console.log(ex);
+                    ifloading = false;
+                });
+            },
+            handleFileUpload: function () {
+                if (this.$refs.file.files[0]) {
+                    this.updateid = this.$refs.file.files[0].name;
+                    this.if_file = true
+                }
+                else
+                    this.if_file = false
+            }
+        }
+    });
+</script>
+{% endblock %}

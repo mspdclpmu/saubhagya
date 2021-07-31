@@ -1,0 +1,780 @@
+{% extends "work/base.html" %}
+{% block content %}
+{% include "work/_resolutionbox.html" %}
+<div id="filterapp">
+    <div v-if="output" style="overflow: scroll; max-height: 20ch;">
+        <b>Output</b>
+        <ol style="list-style-position: unset; list-style:none;">
+            <li v-for="item in output" :class="item['class']">
+                {: item['text'] :}
+            </li>
+        </ol>
+
+    </div>
+    {% include "work/_filter.html" %}
+    <br>
+    <div v-if="ifloading" class="loader">
+    </div>
+    <div v-if="!showSummary" class="topgap">
+        <!-- <div class="tabs">
+            <button class="tab" @click=""></button>
+
+        </div> -->
+        <div class="section">
+            <a name="progress">Progress</a>
+            <table v-if="progressSites.length">
+                <thead>
+                    <th>Review</th>
+                    <th>Review Text</th>
+                    <th>PK</th>
+                    <th>Site ID</th>
+                    <th>Village</th>
+                    <!-- <th>Hab ID</th> -->
+                    <th>Census</th>
+                    <th>Habitation</th>
+                    <th>ht</th>
+                    <th>pole_ht_8m</th>
+                    <th>lt_3p</th>
+                    <th>lt_1p</th>
+                    <th>pole_lt_8m</th>
+                    <th>dtr_100</th>
+                    <th>dtr_63</th>
+                    <th>dtr_25</th>
+                    <th>Cert?</th>
+                    <th>Doc</th>
+                    <th>remark</th>
+                    <th>status</th>
+                    <th>Edit</th>
+
+                </thead>
+                <tbody>
+                    <tr v-for="qty in progressSites"
+                        :title="qty['district'] +' by '+qty['division'] + ' : ' +qty['hab_id']" :key="qty['id']">
+                        <td><a :href="'/work/review/'+ qty['id'] + '/0'" target="_blank"> {: qty['review'] :}</a></td>
+                        <td>{:qty['review_text']:}</td>
+                        <td>{:qty['id']:}</td>
+                        <td>{:qty['site_id']:}</td>
+                        <td>{:qty['village']:}</td>
+                        <!-- <td>{:qty['hab_id']:}</td> -->
+                        <td>{:qty['census']:}</td>
+                        <td>{:qty['habitation']:}</td>
+                        <td>{:qty['ht']:}</td>
+                        <td>{:qty['pole_ht_8m']:}</td>
+                        <td>{:qty['lt_3p']:}</td>
+                        <td>{:qty['lt_1p']:}</td>
+                        <td>{:qty['pole_lt_8m']:}</td>
+                        <td>{:qty['dtr_100']:}</td>
+                        <td>{:qty['dtr_63']:}</td>
+                        <td>{:qty['dtr_25']:}</td>
+                        <td><input type="checkbox" v-model="qty['cert']"
+                                @change="updateField('cert', qty['cert']?'True':'False', qty['id'], 0)"></td>
+                        <td class='td_doc'>
+                            <div v-if="qty['document']" :title="qty['document']">
+                                <a :href="'../media/' + qty['document']" target="_blank">open</a>
+                            </div>
+                            <div v-else>
+                                <form enctype="multipart/form-data">
+                                    <label :for="'file'+qty['id']"></label>
+                                    <input type="file" :name="'file'+qty['id']"
+                                        @change="upload('ProgressQty', qty['id'],$event.target.files[0])">
+                                </form>
+                            </div>
+                        </td>
+                        <td>{:qty['remark']:}</td>
+                        <td>{:qty['status']:}</td>
+                        <td><a target="_blank" :href="'/admin/work/progressqty/'+ qty['id'] +'/'">edit</a></td>
+                        <td v-if="qty['document']">
+                            <a style="cursor:pointer; text-decoration: underline;"
+                                @click="api_deleteDoc('ProgressQty', qty['id'])"><small>delete doc!</small></a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="section">
+            <a name="bill">Bill</a> <label><input type="checkbox" v-model="editMode">Edit</label>
+            <table v-if="billing.length">
+                <thead>
+                    <th>Village</th>
+                    <th>Census</th>
+                    <th>Habitation</th>
+                    <th>Bill No</th>
+                    <th>Status</th>
+                    <th>Remark</th>
+                </thead>
+                <tbody>
+                    <tr v-for="qty in billing">
+                        <td>{:qty['village']:}</td>
+                        <td>{:qty['census']:}</td>
+                        <td>{:qty['habitation']:}</td>
+                        <template v-if="editMode">
+                            <td style="width: 50px;">
+                                <input style="width: 300;" type="text" v-model="qty['billno']"
+                                    v-on:keyup.enter="updateField('site.billing.billno',qty['billno'], qty['pid'], 0)">
+                            </td>
+                            <td>
+                                <select v-model="qty['status']"
+                                    @change="updateField('site.billing.status',qty['status'], qty['pid'], 0)">
+                                    <option v-for="choice in metaInfo['bill_status']">{: choice :}</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input style="width: 300;" type="text" v-model="qty['remark']"
+                                    v-on:keyup.enter="updateField('site.billing.remark',qty['remark'], qty['pid'], 0)">
+                            </td>
+                        </template>
+                        <template v-else>
+                            <td>{:qty['billno']:}</td>
+                            <td>{:qty['status']:}</td>
+                            <td>{:qty['remark']:}</td>
+                        </template>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="section">
+            <a name="progress non survey non dpr">Progress Non Survey Non DPR</a>
+            <table v-if="progressAddtionalSites.length">
+                <thead>
+                    <th>Review</th>
+                    <th>Review Text</th>
+                    <th>PK</th>
+                    <th>Site ID</th>
+                    <th>Village</th>
+                    <!-- <th>Hab ID</th> -->
+                    <th>Census</th>
+                    <th>Habitation</th>
+                    <th>ht</th>
+                    <th>pole_ht_8m</th>
+                    <th>lt_3p</th>
+                    <th>lt_1p</th>
+                    <th>pole_lt_8m</th>
+                    <th>dtr_100</th>
+                    <th>dtr_63</th>
+                    <th>dtr_25</th>
+                    <th>Cert?</th>
+                    <th>Doc</th>
+                    <th>remark</th>
+                    <th>status</th>
+                    <th>Edit</th>
+                </thead>
+                <tbody>
+                    <tr v-for="qty in progressAddtionalSites"
+                        :title="qty['district'] +' by '+qty['division'] + ' : ' +qty['hab_id']">
+                        <td><a :href="'/work/review/'+ qty['id'] + '/1'" target="_blank"> {: qty['review'] :}</a></td>
+                        <td>{:qty['review_text']:}</td>
+                        <td>{:qty['id']:}</td>
+                        <td>{:qty['site_id']:}</td>
+                        <td>{:qty['village']:}</td>
+                        <!-- <td>{:qty['hab_id']:}</td> -->
+                        <td>{:qty['census']:}</td>
+                        <td>{:qty['habitation']:}</td>
+                        <td>{:qty['ht']:}</td>
+                        <td>{:qty['pole_ht_8m']:}</td>
+                        <td>{:qty['lt_3p']:}</td>
+                        <td>{:qty['lt_1p']:}</td>
+                        <td>{:qty['pole_lt_8m']:}</td>
+                        <td>{:qty['dtr_100']:}</td>
+                        <td>{:qty['dtr_63']:}</td>
+                        <td>{:qty['dtr_25']:}</td>
+                        <td><input type="checkbox" v-model="qty['cert']"
+                                @change="updateField('cert', qty['cert']?'True':'False', qty['id'], 1)"></td>
+                        <td class='td_doc'>
+                            <div v-if="qty['document']" :title="qty['document']">
+                                <a :href="'../media/' + qty['document']" target="_blank">open</a>
+                            </div>
+                            <div v-else>
+                                <form enctype="multipart/form-data">
+                                    <input type="file" :name="'file'+qty['id']"
+                                        @change="upload('ProgressQtyExtra', qty['id'],$event.target.files[0])">
+                                </form>
+                            </div>
+                        </td>
+                        <td>{:qty['remark']:}</td>
+                        <td>{:qty['status']:}</td>
+                        <td><a target="_blank" :href="'/admin/work/progressqtyextra/'+ qty['id'] +'/'">edit</a></td>
+                        <td v-if="qty['document']">
+                            <a style="cursor:pointer; text-decoration: underline;"
+                                @click="api_deleteDoc('ProgressQty', qty['id'])"><small>delete doc!</small></a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="section">
+            <a name="progress-nonsurvey">Non surveyed site progress</a>
+            <table v-if="progressQtyNonSurvey.length">
+                <thead>
+                    <th>Review</th>
+                    <th>PK</th>
+                    <th>Site ID</th>
+                    <th>Village</th>
+                    <!-- <th>Hab ID</th> -->
+                    <th>Census</th>
+                    <th>Habitation</th>
+                    <th>ht</th>
+                    <th>pole_ht_8m</th>
+                    <th>lt_3p</th>
+                    <th>lt_1p</th>
+                    <th>pole_lt_8m</th>
+                    <th>dtr_100</th>
+                    <th>dtr_63</th>
+                    <th>dtr_25</th>
+                    <th>Cert?</th>
+                    <th>Doc</th>
+                    <th>remark</th>
+                    <th>status</th>
+                    <th>Edit</th>
+
+                </thead>
+                <tbody>
+                    <tr v-for="qty in progressQtyNonSurvey"
+                        :title="qty['district'] +' by '+qty['division'] + ' : ' +qty['hab_id']" :key="qty['id']">
+                        <td><a :href="'/work/review/'+ qty['id'] + '/0'" target="_blank"> {: qty['review'] :}</a></td>
+                        <td>{:qty['id']:}</td>
+                        <td>{:qty['site_id']:}</td>
+                        <td>{:qty['village']:}</td>
+                        <!-- <td>{:qty['hab_id']:}</td> -->
+                        <td>{:qty['census']:}</td>
+                        <td>{:qty['habitation']:}</td>
+                        <td>{:qty['ht']:}</td>
+                        <td>{:qty['pole_ht_8m']:}</td>
+                        <td>{:qty['lt_3p']:}</td>
+                        <td>{:qty['lt_1p']:}</td>
+                        <td>{:qty['pole_lt_8m']:}</td>
+                        <td>{:qty['dtr_100']:}</td>
+                        <td>{:qty['dtr_63']:}</td>
+                        <td>{:qty['dtr_25']:}</td>
+                        <td><input type="checkbox" v-model="qty['cert']"
+                                @change="updateField('cert', qty['cert']?'True':'False', qty['id'], 0)"></td>
+                        <td class='td_doc'>
+                            <div v-if="qty['document']" :title="qty['document']">
+                                <a :href="'../media/' + qty['document']" target="_blank">open</a>
+                            </div>
+                            <div v-else>
+                                <form enctype="multipart/form-data">
+                                    <label :for="'file'+qty['id']"></label>
+                                    <input type="file" :name="'file'+qty['id']"
+                                        @change="upload('ProgressQty', qty['id'],$event.target.files[0])">
+                                </form>
+                            </div>
+                        </td>
+                        <td>{:qty['remark']:}</td>
+                        <td>{:qty['status']:}</td>
+                        <td><a target="_blank" :href="'/admin/work/progressqty/'+ qty['id'] +'/'">edit</a></td>
+                        <td v-if="qty['document']">
+                            <a style="cursor:pointer; text-decoration: underline;"
+                                @click="api_deleteDoc('ProgressQty', qty['id'])"><small>delete doc!</small></a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="section">
+            <a name="survey">Survey data</a>
+            <table v-if="surevyQtys.length">
+                <thead>
+                    <th>PK</th>
+                    <th>Site ID</th>
+                    <!-- <th>Hab ID</th> -->
+                    <th>Village</th>
+                    <th>Census</th>
+                    <th>Habitation</th>
+                    <th>ht</th>
+                    <th>pole_ht_8m</th>
+                    <th>lt3</th>
+                    <th>lt1</th>
+                    <th>pole_lt_8m</th>
+                    <th>dtr_100</th>
+                    <th>dtr_63</th>
+                    <th>dtr_25</th>
+                    <th>pole_9m</th>
+                    <th>status</th>
+                    <th>remark</th>
+                    <th></th>
+                    <th>Progress</th>
+                    <th>Shifted</th>
+                </thead>
+                <tbody>
+                    <tr v-for="s in surevyQtys">
+                        <td>{: s['id']:}</td>
+                        <td>{: s['site_id']:}</td>
+                        <!-- <td>{: s['hab_id']:}</td> -->
+                        <td>{: s['village']:}</td>
+                        <td>{: s['census']:}</td>
+                        <td>{: s['habitation']:}</td>
+                        <td>{: s['ht'] :}</td>
+                        <td>{: s['pole_ht_8m'] :}</td>
+                        <td>{: s['lt_3p'] :}</td>
+                        <td>{: s['lt_1p'] :}</td>
+                        <td>{: s['pole_lt_8m'] :}</td>
+                        <td>{: s['dtr_100'] :}</td>
+                        <td>{: s['dtr_63'] :}</td>
+                        <td>{: s['dtr_25'] :}</td>
+                        <td>{: s['pole_9m'] :}</td>
+                        <td>{: s['status'] :}</td>
+                        <!-- <td>{: s['diverted_to_id'] :}</td> -->
+                        <td>{: s['remark'] :}</td>
+                        <td><a target="_blank" :href="'/admin/work/surveyqty/'+ s['id'] +'/'">edit</a></td>
+                        <td><a :href="'/work/progress/' + s['site_id']" target="_blank">progress</a></td>
+                        <td><a :href="'/work/shifted/' + s['site_id']" target="_blank">shifted</a></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <br>
+        <div class="section">
+            <a name="sites">Sites</a>
+            <table v-if="site.length">
+                <thead>
+                    <th>sel</th>
+                    <th>check</th>
+                    <th>ID</th>
+                    <th>Hab ID</th>
+                    <th>Village</th>
+                    <th>Census</th>
+                    <th>Habitation</th>
+                    <th>District</th>
+                    <th>Division</th>
+                    <th>Origin</th>
+                    <th></th>
+                    <th>survey</th>
+                    <th>progress</th>
+                    <th>shifted</th>
+                    <th>variations</th>
+
+                </thead>
+                <tbody>
+                    <tr v-for="(s,index) in site">
+                        <td>
+                            <input type="radio" :value="s['id']" v-model="pickedSite" style="width: 14px;">
+                        </td>
+                        <td>
+                            <input type="checkbox" :value="s['id']" v-model="checkedSites">
+                        </td>
+                        <td>{: s['id']:}</td>
+                        <td>{: s['hab_id']:}</td>
+                        <td>{: s['village']:}</td>
+                        <td>{: s['census']:}</td>
+                        <td>{: s['habitation']:}</td>
+                        <td>{: s['district']:}</td>
+                        <td>{: s['division']:}</td>
+                        <td>{: s['origin_id']:}</td>
+                        <td><a target="_blank" :href="'/admin/work/site/'+ s['id'] +'/'">edit</a></td>
+                        <td><a :href="'/work/survey/' + s['id']" target="_blank">survey</a></td>
+                        <td><a :href="'/work/progress/' + s['id']" target="_blank">progress</a></td>
+                        <td><a :href="'/work/shifted/' + s['id']" target="_blank">shifted</a></td>
+                        <td><a :href="'/work/variations/' + s['id']" target="_blank">variations</a></td>
+                        <!-- <td>{: billing[index]['status'] :}</td>
+                        <td>{: billing[index]['remark'] :}</td> -->
+                    </tr>
+                </tbody>
+            </table>
+            <button @click="markSiteOrigin" :disabled="(checkedSites.length == 0) || ( pickedSite == null)">Mark origin to<b>{:pickedSite:}</b></button>
+            <button @click="markSiteAsVariant" :disabled="(checkedSites.length == 0) || ( pickedSite == null)">Mark as variant to<b>{:pickedSite:}</b></button>
+        </div>
+        <br>
+        <div class="section">
+            <a name="additional">Site Variations</a>
+            <table v-if="siteExtra.length">
+                <thead>
+                    <th>Sel</th>
+                    <th>ID</th>
+                    <!-- <th>Hab ID</th> -->
+                    <th>Village</th>
+                    <th>Census</th>
+                    <th>Habitation</th>
+                    <th>District</th>
+                    <th>Division</th>
+                    <th>Diversion</th>
+                    <th>ref site</th>
+                    <th>Edit</th>
+                    <th>Delete</th>
+
+                </thead>
+                <tbody>
+                    <tr v-for="s in siteExtra">
+                        <td>
+                            <input type="checkbox" :value="s['id']" v-model="checkedSiteExtras">
+                        </td>
+                        <td>{: s['id']:}</td>
+                        <!-- <td>{: s['hab_id']:}</td> -->
+                        <td>{: s['village']:}</td>
+                        <td>{: s['census']:}</td>
+                        <td>{: s['habitation']:}</td>
+                        <td>{: s['district']:}</td>
+                        <td>{: s['division']:}</td>
+                        <td>{: s['is_divertion'] :} <a v-if="s['diversion_to_id']" target="_blank"
+                                :href="'/admin/work/site/'+ s['diversion_to_id'] +'/'">{: s['diversion_to_id']:}</a>
+                        </td>
+                        <td><a target="_blank" :href="'/admin/work/site/'+ s['site_id'] +'/'">{: s['site_id']:}</a></td>
+                        <td><a target="_blank" :href="'/admin/work/siteextra/'+ s['id'] +'/'">edit</a></td>
+                        <td><a target="_blank" :href="'/admin/work/siteextra/'+ s['id'] +'/delete'">x</a></td>
+                    </tr>
+                </tbody>
+            </table>
+            <button @click="convert_to_site" :disabled="(checkedSiteExtras.length == 0)">Convert to site</button>
+            <button @click="markVaration" :disabled="(checkedSiteExtras.length == 0) || ( pickedSite == null)">Mark as
+                variation to site<b>{:pickedSite:}</b></button>
+            <button @click="mergeToSite" :disabled="(checkedSiteExtras.length == 0) || true">Move
+                <b>{:checkedSiteExtras.length:}</b> add. sites to refs</button>
+        </div>
+        <br>
+        <div class="section">
+            <a name="dpr">DPR data</a>
+            <table v-if="dprData.length">
+                <thead>
+                    <th>Ref ID</th>
+                    <!-- <th>Hab id</th> -->
+                    <th>Village</th>
+                    <th>Census</th>
+                    <th>Habitation</th>
+                    <th>category</th>
+                    <th>mode</th>
+                    <th>status</th>
+                    <th>type</th>
+                    <th>hh_bpl</th>
+                    <th>hh_bpl_metered</th>
+                    <th>hh_metered</th>
+                    <th>hh_unmetered</th>
+                    <th>hh_apl_free</th>
+                    <th>hh_apl_not_free</th>
+                    <th>ht</th>
+                    <th>lt_3p</th>
+                    <th>lt_1p</th>
+                    <th>dtr_100</th>
+                    <th>dtr_63</th>
+                    <th>dtr_25</th>
+                    <th>remark</th>
+                    <th></th>
+                </thead>
+                <tbody>
+                    <tr v-for="s in dprData">
+                        <td>{: s['site_id']:}</td>
+                        <!-- <td>{: s['hab_id']:}</td> -->
+                        <td>{: s['village']:}</td>
+                        <td>{: s['census']:}</td>
+                        <td>{: s['habitation']:}</td>
+                        <td>{: s['category'] :}</td>
+                        <td>{: s['mode'] :}</td>
+                        <td>{: s['status'] :}</td>
+                        <td>{: s['type'] :}</td>
+                        <td>{: s['hh_bpl'] :}</td>
+                        <td>{: s['hh_bpl_metered'] :}</td>
+                        <td>{: s['hh_metered'] :}</td>
+                        <td>{: s['hh_unmetered'] :}</td>
+                        <td>{: s['hh_apl_free'] :}</td>
+                        <td>{: s['hh_apl_not_free'] :}</td>
+                        <td>{: s['ht'] :}</td>
+                        <td>{: s['lt_3p'] :}</td>
+                        <td>{: s['lt_1p'] :}</td>
+                        <td>{: s['dtr_100'] :}</td>
+                        <td>{: s['dtr_63'] :}</td>
+                        <td>{: s['dtr_25'] :}</td>
+                        <td>{: s['remark'] :} </td>
+                        <td><a target="_blank" :href="'/admin/work/dprqty/'+ s['id'] +'/'">edit</a></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <br>
+    </div>
+    <div id="summary" v-if="showSummary" class="summary">
+        <h3>Summary</h3>
+        <hr>
+        <div style="display: flex; justify-content:space-around">
+            <form id="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}" v-if="summary">
+                {% csrf_token %}
+                <input hidden name='path' value="outputs/last_fetch_progress.xlsx">
+                <input hidden name='filename' :value="'progress_' + filtervalues + '.xlsx'">
+                <input hidden name='tabtype' value="filtered progress">
+                <input type="submit" value="Download Progress Data">
+            </form>
+            <form id="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}" v-if="summary">
+                {% csrf_token %}
+                <input hidden name='path' value="outputs/filtered_sites.xlsx">
+                <input hidden name='filename' :value="'sites_' + filtervalues + '.xlsx'">
+                <input hidden name='tabtype' value="filtered sites">
+                <input type="submit" value="Download Sites Data">
+            </form>
+        </div>
+        <hr>
+        <form id="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}" v-if="summary">
+            {% csrf_token %}
+            <input hidden name='path' value="outputs/filtered_summary.xlsx">
+            <input hidden name='filename' :value="'summary_' + filtervalues + '.xlsx'">
+            <input hidden name='tabtype' value="filtered summary">
+            <input type="submit" value="Download this!">
+        </form>
+        <div v-html="summary" style="max-height: 80vh; overflow:scroll;"></div>
+        <!-- last_fetch_progress.xlsx -->
+    </div>
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    var tdcss;
+    var extraApp = new Vue({
+        el: '#filterapp',
+        delimiters: ["{:", ":}"],
+        data: {
+            habid: "",
+            habid_exact: "",
+            billno: "",
+            site: [],
+            dprData: [],
+            surevyQtys: [],
+            siteExtra: [],
+            progressSites: [],
+            progressQtyNonSurvey: [],
+            progressAddtionalSites: [],
+            checkedSiteExtras: [],
+            checkedSites: [],
+            pickedSite: null,
+            ifloading: false,
+            district: "",
+            division: "",
+            village: "",
+            output: null,
+            summary: null,
+            showSummary: false,
+            filtervalues: "filter_values",
+            status: 'any',
+            filterShow: true,
+            review: 'any',
+            withDoc: 'any',
+            cert: 'any',
+            survey: 'any',
+            bill: 'any',
+            msg: [],
+            additional: false,
+            billing: [],
+            metaInfo: [],
+            editMode: true
+        },
+        filters: {
+            pretty: function (value) {
+                return JSON.stringify(JSON.parse(value), null, 2);
+            }
+        },
+        methods: {
+
+            api_deleteDoc: function (to, id) {
+                res = confirm("Delete doc?");
+                //console.log(res);
+                if (res) {
+                    let url = "/work/api_deleteDoc/" + to + "/" + id;
+                    axios.get(url).then(response => {
+                        console.log(response.data);
+                        this.load(1);
+                    });
+                }
+                /*
+                alert('Delete doc?')
+                    .then(() => {
+                        let url = "/work/api_deleteDoc/" + to + "/" + id;
+                        axios.get(url).then(response => {
+                            console.log(response.data);
+                            this.load(1);
+                        });
+                    });*/
+
+            },
+            upload: function (to, id, file) {
+                console.log(to, id, file);
+                let formdata = new FormData();
+                formdata.append("to", to);
+                formdata.append("id", id);
+                formdata.append("file", file);
+                axios.post("{% url 'work:api_uploadDoc' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    console.log(response.data);
+                    this.load(1);
+                });
+
+            },
+            test: function (v) {
+                console.log(v)
+            },
+            load: function (i) {
+                this.site = [];
+                this.dprData = [];
+                this.siteExtra = [];
+                this.surevyQtys = [];
+                this.progressSites = [];
+                this.progressAddtionalSites = [];
+                this.checkedSiteExtras = [];
+                this.checkedSites = [];
+                this.pickedSite = null;
+                this.ifloading = true;
+                this.output = null;
+                this.summary = null;
+                this.billing = []
+                let formdata = new FormData();
+                formdata.append('habid', this.habid.replace(" ", ""));
+                formdata.append('habid_exact', this.habid_exact.replace(" ", ""));
+                formdata.append('billno', this.billno.replace(" ", ""));
+                formdata.append('district', this.district);
+                formdata.append('division', this.division);
+                formdata.append('village', this.village);
+                console.log(this.status);
+                if (!(this.status == 'any')) {
+                    formdata.append('status', this.status);
+                }
+                if (!(this.review == 'any')) {
+                    formdata.append('review', this.review);
+                }
+                if (!(this.withDoc == 'any'))
+                    formdata.append('with_doc', this.withDoc);
+                if (!(this.cert == 'any'))
+                    formdata.append('cert', this.cert);
+
+                if (!(this.survey == 'any'))
+                    formdata.append('survey', this.survey);
+                if (!(this.bill == 'any'))
+                    formdata.append('bill', this.bill);
+                if (this.additional)
+                    formdata.append('additional', this.additional ? "additional" : null);
+
+                //this.filtervalues = [this.district, this.division, this.village, this.habid, this.habid_exact, this.status, this.review].map((f) => f ? "(Object.keys({f})[0]-f)" : "");
+
+                //this.filtervalues = this.district + this.division + this.village + this.habid + this.habid_exact + this.status, this.review;
+                this.filtervalues = [this.district, this.division, this.village, this.habid, this.habid_exact,this.billno, this.status, this.review, this.withDoc, this.survey, this.bill].map(f => (f == "" || f == null) ? "" : `${f}`).join("_");
+                formdata.append('filtername', this.filtervalues);
+                axios.post("{% url 'work:api_getSite' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    this.ifloading = false;
+                    //data = JSON.parse(response.data);
+                    data = response.data;
+                    console.log(data);
+                    this.site = data['site'];
+                    this.billing = data['billing'];
+                    this.metaInfo = data['metaInfo'];
+                    this.dprData = data['dprData'];
+                    this.siteExtra = data['siteAdditional'];
+                    //console.log(this.siteExtra);
+                    this.surevyQtys = data['surevyQtys'];
+                    this.progressSites = data['progressSites'];
+                    this.progressQtyNonSurvey = data['progressQtyNonSurvey'];
+                    //console.log(this.progressQtyNonSurvey);
+                    this.progressAddtionalSites = data['progressAddtionalSites'];
+                    //console.log(this.progressAddtionalSites);
+                    this.summary = data['summary'];
+                    tdcss();
+                    //this.filterShow = false;
+                });
+            },
+            convert_to_site: function () {
+                let formdata = new FormData();
+                formdata.append('checkedSites', this.checkedSiteExtras);
+                axios.post("{% url 'work:api_convertToSite' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    this.load();
+                    console.log(response.data)
+                });
+            },
+            markVaration: function () {
+                let formdata = new FormData();
+                formdata.append('pickedSite', this.pickedSite);
+                formdata.append('checkedSites', this.checkedSiteExtras);
+                axios.post("{% url 'work:api_markVariations' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    this.load();
+                    console.log(response.data)
+                });
+            },
+            markSiteAsVariant: function () {
+                let formdata = new FormData();
+                formdata.append('siteTo', this.pickedSite);
+                formdata.append('checkedSites', this.checkedSites);
+                axios.post("{% url 'work:api_markSitesAsVariation' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    console.log(this.output);
+                    this.load();
+                    this.output = response.data['status']
+                });
+            },
+            markSiteOrigin: function () {
+                let formdata = new FormData();
+                formdata.append('originSite', this.pickedSite);
+                formdata.append('checkedSites', this.checkedSites);
+                axios.post("{% url 'work:api_markSiteOrigin' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    this.output = response.data['status']
+                    console.log(this.output);
+                    this.load();
+                });
+            },
+            mergeToSite: function () {
+                //console.log(this.checkedSiteExtras)
+                let formdata = new FormData();
+                formdata.append('checkedSites', this.checkedSiteExtras);
+                axios.post("{% url 'work:api_mergeToSite' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    this.output = response.data['status']
+                    console.log(this.output);
+                    this.load();
+                });
+            },
+            switchSite: function (fromSite, toSite) {
+                //console.log(this.checkedSiteExtras)
+                let formdata = new FormData();
+                formdata.append('from_site_id', fromSite);
+                formdata.append('to_site_id', toSite);
+                axios.post("{% url 'work:api_switch_site' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    this.output = response.data['status'];
+                    console.log(this.output);
+                    this.load();
+                });
+            },
+            updateField: function (field, value, pid, isAdditional) {
+                console.log(field, value);
+                let formdata = new FormData();
+                formdata.append('value', value);
+                formdata.append('field', field);
+                formdata.append('pid', pid);
+                formdata.append('isAdditional', isAdditional);
+                axios.post("{% url 'work:api_updateExecQty' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    console.log(response.data);
+                    this.output = response.data['msg'];
+                });
+            },
+            addVariation: function () {
+
+            }
+        },
+    })
+</script>
+
+{% endblock %}

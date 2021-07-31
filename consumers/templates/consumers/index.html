@@ -1,0 +1,159 @@
+{% extends "work/base.html" %}
+
+{% block content %}
+<!--- Upload consumer records -->
+<p>Upload consumer data</p>
+<div id="appConsumer">
+    <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+        {% csrf_token %}
+        <input hidden name='path' value="files/template_consumer_details.xlsx">
+        <input hidden name='filename' value="template_consumer_details.xlsx">
+        <input hidden name='tabtype' value="template_consumer_details">
+        <input type="submit" value="Download Consumer Details Template">
+    </form>
+    <form action="{% url 'consumers:upload'%}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label>Upload id</label>
+        <input type="text" name="upid" v-model="upid" @change="changed">
+        <input type="file" name="file" accept=".xlsx" @change="changed" v-model="file">
+        <input type="submit" value="upload" :disabled="!isValid">
+    </form>
+    <div class="section">
+        <strong>Consumers Count</strong>
+        {{data | safe}}
+    </div>
+    <div class="section">
+        <form @submit.prevent="loadConsumers()">
+            <div style="display: flex; flex-direction:row; justify-content:flex-start;">
+                <label>Village</label>
+                <input type="text" name="village" id="village" v-model="village">
+                <label>census + habitation</label>
+                <input type="text" name="habid" id="habid" v-model="habid" autofocus>
+                <label>address</label>
+                <input type="text" name="address" id="address" v-model="address" autofocus>
+                <label>Hab id</label>
+                <input type="text" name="habid_exact" id="habid_exact" v-model="habid_exact" autofocus>
+            </div>
+            <div style="display: flex; flex-direction:row; justify-content:flex-start;">
+                <label>consumer_no</label>
+                <input type="text" name="consumer_no" id="consumer_no" v-model="consumer_no" autofocus>
+                <label>name</label>
+                <input type="text" name="name" id="name" v-model="name" autofocus>
+                <label>consumer_id</label>
+                <input type="text" name="consumer_id" id="consumer_id" v-model="consumer_id" autofocus>
+                <label><input type="checkbox" name="portalonly" id="portal" v-model="inPortal">Only Portal</label>
+            </div>
+            <input type="submit"
+                :disabled="!habid && !address && !habid_exact && !village && !consumer_id && !consumer_no && !name"
+                value="Load">
+        </form>
+        <hr>
+    </div>
+    <div>
+        <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+            {% csrf_token %}
+            <input hidden name='path' value="outputs/filtered_consumers.xlsx">
+            <input hidden name='filename' value="filtered_consumers.xlsx">
+            <input hidden name='tabtype' value="filtered_consumers">
+            <input type="submit" value="Download">
+        </form>
+        <!-- <span v-html="consumers"></span> -->
+        <p>Count: {: ccount :}</p>
+        <div v-html="header"></div>
+        <div v-if="consumers" class="section">
+            <table>
+                <thead>
+                    <th v-for="key in Object.keys(consumers[0])">
+                        {: key :}
+                    </th>
+                    <!-- <th>edit</th> -->
+                </thead>
+                <tbody>
+                    <tr v-for="consumer in consumers">
+                        <td v-for="value in consumer">
+                            <span v-html="value"></span>
+                        </td>
+                        <!-- <td><a target="_blank" :href="'/admin/consumers/consumer/' + consumer['']"></a></td> -->
+                    </tr>
+                </tbody>
+
+            </table>
+        </div>
+        <div v-else>
+            <em>{: msg :}</em>
+        </div>
+    </div>
+    {% endblock %}
+    {% block right %}
+    {% endblock %}
+    {% block script %}
+    <script>
+        new Vue({
+            el: "#appConsumer",
+            delimiters: ["{:", ":}"],
+            data: {
+                isValid: false,
+                upid: null,
+                file: null,
+                habid: null,
+                address: null,
+                habid_exact: null,
+                village: null,
+                name: null,
+                consumer_no: null,
+                consumer_id: null,
+                consumers: null,
+                inPortal: false,
+                ccount: 0,
+                header: null,
+                msg: ""
+            },
+            methods: {
+                changed: function () {
+                    if (this.upid == null)
+                        this.upid = this.file;
+                    this.isValid = this.file != null && this.upid != null;
+                },
+                loadConsumers: function () {
+                    this.consumers = null;
+                    this.ccount = 0;
+                    this.header = null;
+                    this.msg = "loading...";
+                    let formdata = new FormData();
+                    if (this.habid)
+                        formdata.append('habid', this.habid.replace(" ", ""));
+                    if (this.address)
+                        formdata.append('address', this.address);
+                    if (this.habid_exact)
+                        formdata.append('habid_exact', this.habid_exact.replace(" ", ""));
+                    if (this.village)
+                        formdata.append('village', this.village.replace(" ", ""));
+                    if (this.name) {
+                        formdata.append('name', this.name);
+                    }
+                    if (this.consumer_no)
+                        formdata.append('consumer_no', this.consumer_no.replace(" ", ""));
+                    if (this.consumer_id)
+                        formdata.append('consumer_id', this.consumer_id.replace(" ", ""));
+                    if (this.inPortal)
+                        formdata.append('inPortal', 'True');
+                    axios.post("{% url 'consumers:api_getConsumers' %}", formdata, {
+                        headers: {
+                            'X-CSRFToken': Cookies.get('csrftoken')
+                        }
+                    }).then(response => {
+                        this.consumers = response.data['consumers'];
+                        console.log(this.consumers)
+                        this.ccount = response.data['count'];
+                        this.header = response.data['header'];
+                        console.log(response.data['consumers']);
+                        if (this.consumers == null)
+                            this.msg = "No data"
+                    });
+                }
+            }
+
+        });
+    </script>
+
+    {% endblock %}
